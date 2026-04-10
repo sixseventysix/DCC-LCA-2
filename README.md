@@ -19,6 +19,89 @@ Roll No. 50, Batch C2
 ## Deadline
 10/04/2026
 
+## Network File System (NFS)
+
+A containerised NFS setup using Docker Compose that demonstrates a server-client shared filesystem over a private network.
+
+### What it does
+
+- An NFS server exports a shared directory (`/exports`) over NFSv4
+- An NFS client mounts that directory at `/mnt/nfs`
+- Files written on either side are immediately visible on the other
+
+Both nodes run as Docker containers on an isolated bridge network (`192.168.100.0/24`).
+
+### Why NFS-Ganesha
+
+The NFS server uses [NFS-Ganesha](https://github.com/nfs-ganesha/nfs-ganesha), a userspace NFS daemon, rather than the Linux kernel NFS server (`nfs-kernel-server`). This is necessary on macOS with Docker Desktop, the underlying Linux VM does not expose the kernel NFS subsystem (`/proc/fs/nfsd`) to containers, so `rpc.nfsd` fails with "Unsupported version". Ganesha implements the full NFS protocol in userspace and has no kernel dependencies.
+
+### Structure
+
+```
+nfs/
+├── docker/
+│   ├── Dockerfile.server      # Ubuntu 22.04 + NFS-Ganesha
+│   ├── Dockerfile.client      # Ubuntu 22.04 + nfs-common
+│   ├── entrypoint-server.sh   # Starts dbus, rpcbind, and ganesha
+│   └── ganesha.conf           # NFSv4 export config
+├── docker-compose.yml         # Two-container setup on a static bridge network
+└── Makefile                   # Targets: server, client, test, clean
+```
+
+### Setup
+
+Requires Docker Desktop with Docker Compose. No other dependencies.
+
+```bash
+cd nfs
+```
+
+### How to run
+
+**1. Start the server**
+
+```bash
+make server
+```
+
+Builds the server image and starts it. Waits until Ganesha reports ready before returning.
+
+**2. Start the client and open an interactive shell**
+
+```bash
+make client
+```
+
+Starts the client container, mounts the NFS share at `/mnt/nfs`, and drops you into a bash shell.
+
+### Verification
+
+Once inside the client shell, the shared directory is at `/mnt/nfs`:
+
+```bash
+# Write a file from the client
+echo "hello from client" > /mnt/nfs/test.txt
+
+# Confirm it is visible on the server (from another terminal)
+docker exec nfs-server cat /exports/test.txt
+```
+
+To run the automated read/write test (requires both server and client already running):
+
+```bash
+make test
+```
+
+This writes a timestamped file from the client and reads it back from the server, then does the reverse, and prints a directory listing.
+
+### Teardown
+
+```bash
+make clean
+```
+
+Stops and removes all containers, volumes, and networks.
+
 ## Cloud Deployment: Location Map Viewer
 
 **Live:** https://location-map.samarthkulkarni.workers.dev
@@ -34,15 +117,20 @@ A serverless web application deployed on **Cloudflare Workers** that geocodes an
 
 ### Deployment
 
-The application is deployed as a **Cloudflare Worker**; a serverless function that runs at the edge on Cloudflare's global network. There is no origin server; every request is handled directly at a data centre close to the user.
+**Cloudflare Workers** is a serverless compute platform. Unlike a traditional deployment where you rent a virtual machine or a server, provision it, install dependencies, and keep it running 24/7, Workers lets you deploy a single JavaScript file. Cloudflare takes that file and distributes it across its global network of data centres. When a user makes a request, it is handled by the data centre closest to them; there is no single origin server.
 
-Deployment is done via the Wrangler CLI:
+This model is called *edge computing*: the code runs at the "edge" of the network, close to the user, rather than in one centralised location. The application has no idle cost; you are only charged for actual requests.
+
+**Wrangler** is the official command-line tool for Cloudflare Workers. It handles authentication with your Cloudflare account, bundles your JavaScript, and uploads it to the platform. The project is configured via `wrangler.toml`, which tells Wrangler the name of the Worker, the entry point file, and the compatibility settings.
+
+To deploy:
 
 ```bash
-npm run deploy   # runs: wrangler deploy
+wrangler login        # opens a browser to authenticate with your Cloudflare account
+npm run deploy        # runs: wrangler deploy — bundles src/worker.js and pushes it live
 ```
 
-The entry point is `src/worker.js`, configured in `wrangler.toml`.
+Once deployed, Cloudflare assigns a public URL of the form `https://<worker-name>.<your-subdomain>.workers.dev`. This application is live at https://location-map.samarthkulkarni.workers.dev.
 
 ### How rendering works
 
