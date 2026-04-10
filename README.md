@@ -19,6 +19,43 @@ Roll No. 50, Batch C2
 ## Deadline
 10/04/2026
 
+## Bully Election Algorithm
+
+A single-file C simulation of the Bully Election Algorithm, implemented in `bully-election/bully.c`.
+
+### What it does
+
+The Bully Algorithm is a leader election algorithm for distributed systems. Each process has a unique numeric ID. The process with the highest ID among the currently alive processes becomes the coordinator. When any process notices the coordinator is gone, it triggers an election:
+
+1. It sends an `ELECTION` message to every process with a higher ID.
+2. If a higher-ID process is alive, it replies `OK` and takes over the election by repeating step 1 with its own ID.
+3. If no higher process replies, the initiator declares itself coordinator and broadcasts a `COORDINATOR` message to all other processes.
+
+The algorithm is inherently synchronous — each step blocks waiting for a response before the next one begins. This is assumed by the protocol: silence within a bounded time means the process is dead.
+
+### Scenarios simulated
+
+1. **Initial election** — no coordinator exists; the lowest process triggers one and P5 wins.
+2. **Coordinator crash** — P5 (coordinator) fails; P2 detects it and starts a new election; P4 wins.
+3. **Cascade failure** — P4 and P3 also fail; P1 detects it; P2 wins.
+4. **Recovery** — P5 recovers and immediately starts an election, bullying its way back to the top.
+5. **Last survivor** — all processes except P1 fail; P1 wins with no competition.
+
+### How to run
+
+```bash
+cd bully-election
+gcc -Wall -o bully bully.c && ./bully
+```
+
+### Implementation note
+
+The simulation runs in a single process. Each "process" is a struct with an ID and an `UP`/`DOWN` status. Message passing is modelled as direct function calls — sending an `ELECTION` message to P4 is just checking whether P4's status is `UP`. The recursive call stack mirrors the election chain: P1 calls `elect(1)`, which hands off to `elect(2)`, which hands off to `elect(5)`, which wins.
+
+### Why not pthreads or separate Unix processes?
+
+Both approaches were attempted. The core difficulty is that the Bully Algorithm is synchronous by design — a process sends `ELECTION` and waits for an `OK` before deciding what to do next. With pthreads, all higher-ID threads receive the `ELECTION` message concurrently and all start their own elections simultaneously, flooding the system with redundant elections before anyone can declare victory. There is no clean synchronisation point without effectively serialising the threads back into the sequential model, at which point threads add complexity with no benefit. Separate OS processes over TCP have the same problem, compounded by stale messages from previous elections sitting in socket buffers and being picked up by the next election's receive call. Election algorithms designed for truly asynchronous systems (e.g. Ring Election, Raft leader election) handle this by including a term/epoch number in every message so stale messages are discarded. The Bully Algorithm has no such mechanism — it was designed for synchronous systems and is best simulated as one.
+
 ## Network File System (NFS)
 
 A containerised NFS setup using Docker Compose that demonstrates a server-client shared filesystem over a private network.
