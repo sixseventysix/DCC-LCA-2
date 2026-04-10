@@ -1,0 +1,57 @@
+=== Bully Election — synchronous simulation ===
+  5 processes (P1–P5), all UP
+
+[1] Initial election — P1 detects no coordinator
+  P1 notices coordinator is gone → starts election
+  P1 → ELECTION → P2 (OK)
+  P2 → ELECTION → P3 (OK)
+  P3 → ELECTION → P4 (OK)
+  P4 → ELECTION → P5 (OK)
+  P5 → ELECTION
+  ★ P5 wins — broadcasting COORDINATOR
+
+  P1✓  P2✓  P3✓  P4✓  P5✓   coord: P5
+
+
+[2] Coordinator (P5) fails — P2 detects it
+  P5 failed
+  P2 notices coordinator is gone → starts election
+  P2 → ELECTION → P3 (OK)
+  P3 → ELECTION → P4 (OK)
+  P4 → ELECTION → P5 (no reply)
+  ★ P4 wins — broadcasting COORDINATOR
+
+  P1✓  P2✓  P3✓  P4✓  P5✗   coord: P4
+
+
+[3] P4 and P3 fail — P1 detects it
+  P4 failed
+  P3 failed
+  P1 notices coordinator is gone → starts election
+  P1 → ELECTION → P2 (OK)
+  P2 → ELECTION → P3 (no reply) → P4 (no reply) → P5 (no reply)
+  ★ P2 wins — broadcasting COORDINATOR
+
+  P1✓  P2✓  P3✗  P4✗  P5✗   coord: P2
+
+
+[4] P5 recovers — bullies its way to the top
+  P5 recovered → starts election
+  P5 → ELECTION
+  ★ P5 wins — broadcasting COORDINATOR
+
+  P1✓  P2✓  P3✗  P4✗  P5✓   coord: P5
+
+
+[5] Everyone fails except P1 — P1 wins
+  P5 failed
+  P4 failed
+  P3 failed
+  P2 failed
+  P1 notices coordinator is gone → starts election
+  P1 → ELECTION → P2 (no reply) → P3 (no reply) → P4 (no reply) → P5 (no reply)
+  ★ P1 wins — broadcasting COORDINATOR
+
+  P1✓  P2✗  P3✗  P4✗  P5✗   coord: P1
+
+=== done ===
