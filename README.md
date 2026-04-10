@@ -1,4 +1,10 @@
 # DCC Continuous Assessment
+Samarth Kulkarni
+
+1032222418
+
+Roll No. 50, Batch C2
+
 
 ## Tasks
 1. Bully Election Algorithm
