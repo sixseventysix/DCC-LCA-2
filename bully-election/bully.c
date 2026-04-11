@@ -94,12 +94,6 @@ static void notice_coordinator_gone(int detector)
     elect(detector);
 }
 
-/* ── Scenario header ───────────────────────────────────────────────── */
-static void scenario(int num, const char *desc)
-{
-    printf(BOLD YEL "\n[%d] %s\n" R, num, desc);
-}
-
 /* ── Init ──────────────────────────────────────────────────────────── */
 static void init(int count)
 {
@@ -110,38 +104,92 @@ static void init(int count)
     printf("  %d processes (P1–P%d), all " GRN "UP" R "\n", n, n);
 }
 
+/* ── Help text ─────────────────────────────────────────────────────── */
+static void print_help(void)
+{
+    printf(BOLD "  Commands:\n" R);
+    printf("    fail    <id>          — bring a process down\n");
+    printf("    recover <id>          — bring a process back up (triggers election)\n");
+    printf("    detect  <detector>    — process notices coordinator is gone, starts election\n");
+    printf("    elect   <initiator>   — manually kick off an election from a process\n");
+    printf("    state                 — print current cluster state\n");
+    printf("    reset                 — re-initialise with the same N\n");
+    printf("    help                  — show this list\n");
+    printf("    quit                  — exit\n\n");
+}
+
 /* ── Main ──────────────────────────────────────────────────────────── */
 int main(void)
 {
-    init(5);
-
-    scenario(1, "Initial election — P1 detects no coordinator");
-    notice_coordinator_gone(1);   /* P5 should win */
+    /* ── Ask for number of nodes ──────────────────────────────────── */
+    printf(BOLD "=== Bully Election — interactive simulation ===\n\n" R);
+    printf("  Number of processes (2-%d): ", MAX);
+    if (scanf("%d", &n) != 1 || n < 2 || n > MAX) {
+        fprintf(stderr, RED "  Invalid count.\n" R);
+        return 1;
+    }
+    init(n);
     print_state();
+    print_help();
 
-    scenario(2, "Coordinator (P5) fails — P2 detects it");
-    fail(5);
-    notice_coordinator_gone(2);   /* P4 should win */
-    print_state();
+    /* ── REPL ─────────────────────────────────────────────────────── */
+    char cmd[32];
+    int  arg;
 
-    scenario(3, "P4 and P3 fail — P1 detects it");
-    fail(4);
-    fail(3);
-    notice_coordinator_gone(1);   /* P2 should win */
-    print_state();
+    for (;;) {
+        printf(BOLD "> " R);
+        fflush(stdout);
 
-    scenario(4, "P5 recovers — bullies its way to the top");
-    recover(5);                   /* P5 should win */
-    print_state();
+        if (scanf("%31s", cmd) != 1) break;   /* EOF */
 
-    scenario(5, "Everyone fails except P1 — P1 wins");
-    fail(5);
-    fail(4);
-    fail(3);
-    fail(2);
-    notice_coordinator_gone(1);   /* P1 should win */
-    print_state();
+        if (strcmp(cmd, "quit") == 0 || strcmp(cmd, "q") == 0) {
+            break;
 
-    printf(BOLD "=== done ===\n" R);
+        } else if (strcmp(cmd, "state") == 0) {
+            print_state();
+
+        } else if (strcmp(cmd, "reset") == 0) {
+            init(n);
+            print_state();
+
+        } else if (strcmp(cmd, "help") == 0) {
+            print_help();
+
+        } else if (strcmp(cmd, "fail") == 0) {
+            if (scanf("%d", &arg) != 1) { printf("  Usage: fail <id>\n"); continue; }
+            if (arg < 1 || arg > n) { printf(RED "  ID out of range (1-%d)\n" R, n); continue; }
+            if (procs[arg] == DOWN) { printf(YEL "  P%d is already down\n" R, arg); continue; }
+            fail(arg);
+            print_state();
+
+        } else if (strcmp(cmd, "recover") == 0) {
+            if (scanf("%d", &arg) != 1) { printf("  Usage: recover <id>\n"); continue; }
+            if (arg < 1 || arg > n) { printf(RED "  ID out of range (1-%d)\n" R, n); continue; }
+            if (procs[arg] == UP) { printf(YEL "  P%d is already up\n" R, arg); continue; }
+            recover(arg);
+            print_state();
+
+        } else if (strcmp(cmd, "detect") == 0) {
+            if (scanf("%d", &arg) != 1) { printf("  Usage: detect <id>\n"); continue; }
+            if (arg < 1 || arg > n) { printf(RED "  ID out of range (1-%d)\n" R, n); continue; }
+            if (procs[arg] == DOWN) { printf(RED "  P%d is down — can't detect anything\n" R, arg); continue; }
+            if (coordinator != -1) { printf(YEL "  There is a coordinator (P%d). Use 'fail %d' first if you want to simulate it going away.\n" R, coordinator, coordinator); continue; }
+            notice_coordinator_gone(arg);
+            print_state();
+
+        } else if (strcmp(cmd, "elect") == 0) {
+            if (scanf("%d", &arg) != 1) { printf("  Usage: elect <id>\n"); continue; }
+            if (arg < 1 || arg > n) { printf(RED "  ID out of range (1-%d)\n" R, n); continue; }
+            if (procs[arg] == DOWN) { printf(RED "  P%d is down — can't start an election\n" R, arg); continue; }
+            printf(YEL "  P%d manually starts an election\n" R, arg);
+            elect(arg);
+            print_state();
+
+        } else {
+            printf("  Unknown command '%s'. Type 'help' for options.\n", cmd);
+        }
+    }
+
+    printf(BOLD "\n=== bye ===\n" R);
     return 0;
 }
