@@ -58,86 +58,26 @@ Both approaches were attempted. The core difficulty is that the Bully Algorithm 
 
 ## Network File System (NFS)
 
-A containerised NFS setup using Docker Compose that demonstrates a server-client shared filesystem over a private network.
+An NFS setup across two Linux VMs demonstrating a server-client shared filesystem over a real network.
 
 ### What it does
 
-- An NFS server exports a shared directory (`/exports`) over NFSv4
-- An NFS client mounts that directory at `/mnt/nfs`
+- An NFS server exports `/exports/shared` using `nfs-kernel-server`
+- An NFS client mounts that directory at `/mnt/shared` over NFS
 - Files written on either side are immediately visible on the other
 
-Both nodes run as Docker containers on an isolated bridge network (`192.168.100.0/24`).
-
-### Why NFS-Ganesha
-
-The NFS server uses [NFS-Ganesha](https://github.com/nfs-ganesha/nfs-ganesha), a userspace NFS daemon, rather than the Linux kernel NFS server (`nfs-kernel-server`). This is necessary on macOS with Docker Desktop, the underlying Linux VM does not expose the kernel NFS subsystem (`/proc/fs/nfsd`) to containers, so `rpc.nfsd` fails with "Unsupported version". Ganesha implements the full NFS protocol in userspace and has no kernel dependencies.
+Both nodes are Ubuntu VMs running under [OrbStack](https://orbstack.dev) on Apple Silicon, connected via OrbStack's internal network.
 
 ### Structure
 
 ```
 nfs/
-├── docker/
-│   ├── Dockerfile.server      # Ubuntu 22.04 + NFS-Ganesha
-│   ├── Dockerfile.client      # Ubuntu 22.04 + nfs-common
-│   ├── entrypoint-server.sh   # Starts dbus, rpcbind, and ganesha
-│   └── ganesha.conf           # NFSv4 export config
-├── docker-compose.yml         # Two-container setup on a static bridge network
-└── Makefile                   # Targets: server, client, test, clean
+├── doc.md        # full technical documentation
+└── output/
+    └── output.txt    # terminal session demonstrating the setup
 ```
 
-### Setup
-
-Requires Docker Desktop with Docker Compose. No other dependencies.
-
-```bash
-cd nfs
-```
-
-### How to run
-
-**1. Start the server**
-
-```bash
-make server
-```
-
-Builds the server image and starts it. Waits until Ganesha reports ready before returning.
-
-**2. Start the client and open an interactive shell**
-
-```bash
-make client
-```
-
-Starts the client container, mounts the NFS share at `/mnt/nfs`, and drops you into a bash shell.
-
-### Verification
-
-Once inside the client shell, the shared directory is at `/mnt/nfs`:
-
-```bash
-# Write a file from the client
-echo "hello from client" > /mnt/nfs/test.txt
-
-# Confirm it is visible on the server (from another terminal)
-docker exec nfs-server cat /exports/test.txt
-```
-
-To run the automated read/write test (requires both server and client already running):
-
-```bash
-make test
-```
-
-This writes a timestamped file from the client and reads it back from the server, then does the reverse, and prints a directory listing.
-
-### Teardown
-
-```bash
-make clean
-```
-
-Stops and removes all containers, volumes, and networks.
+See [nfs/doc.md](nfs/doc.md) for setup steps, export configuration, and an explanation of how NFS works.
 
 ## Cloud Deployment: Location Map Viewer
 

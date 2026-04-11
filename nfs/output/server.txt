@@ -1,0 +1,13 @@
+samarth@nfs-server:/$ ls -ln /exports/shared
+total 8
+-rw-r--r-- 1 501 501 18 Apr 11 15:42 from-server.txt
+-rw-r--r-- 1 501 501 18 Apr 11 15:40 test.txt
+
+samarth@nfs-server:/$ echo "hello from server" > /exports/shared/from-server2.txt
+
+samarth@nfs-server:/$ cat /exports/shared/test.txt
+hello from client
+
+samarth@nfs-server:/$ sudo exportfs -v
+/exports/shared
+		<world>(sync,wdelay,hide,no_subtree_check,sec=sys,rw,secure,no_root_squash,no_all_squash)

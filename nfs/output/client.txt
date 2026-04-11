@@ -1,0 +1,17 @@
+samarth@nfs-client:/$ df -h /mnt/shared
+Filesystem                       Size  Used Avail Use% Mounted on
+192.168.139.180:/exports/shared  102G  2.1G  100G   2% /mnt/shared
+
+samarth@nfs-client:/$ echo "hello from client" > /mnt/shared/test.txt
+
+samarth@nfs-client:/$ cat /mnt/shared/from-server.txt
+hello from server
+
+samarth@nfs-client:/$ cat /mnt/shared/from-server2.txt
+hello from server
+
+samarth@nfs-client:/$ ls -ln /mnt/shared
+total 12
+-rw-r--r-- 1 501 501 18 Apr 11 15:42 from-server.txt
+-rw-r--r-- 1 501 501 18 Apr 11 15:50 from-server2.txt
+-rw-r--r-- 1 501 501 18 Apr 11 15:51 test.txt
